@@ -9,6 +9,9 @@ import torch.optim as optim
 from torch.utils.data import DataLoader as DTL 
 from optimization.dataset import Source 
 
+import torch.distributed as td 
+import torch.multiprocessing as mp 
+
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler as DSP
 
@@ -21,7 +24,7 @@ from loguru import logger
 
 def train(gpu_idx, node_rank, nb_gpus_per_node, world_size, server_config, root_path, nb_epochs, bt_size):
 	worker_rank = node_rank * nb_gpus_per_node + gpu_idx
-	th.init_process_group(backend='nccl', world_size=world_size, rank=worker_rank, init_method=server_config)
+	td.init_process_group(backend='nccl', world_size=world_size, rank=worker_rank, init_method=server_config)
 	
 	th.manual_seed(0)
 	th.cuda.set_device(gpu_idx)
@@ -30,13 +33,13 @@ def train(gpu_idx, node_rank, nb_gpus_per_node, world_size, server_config, root_
 	picker = DSP(dataset=source, num_replicas=world_size, rank=worker_rank)
 	loader = DTL(dataset=source, shuffle=True, batch_size=bt_size, sampler=picker)
 
-	E = DDP(Extractor().cuda())  # vgg19 network
-	G = DDP(Generator(i_channels=3, o_channels=64, num_blocks=16, num_scaling_block=2).cuda())
-	D = DDP(Discriminator(i_channels=3, o_channels=64, num_super_blocks=4, num_neurons=1024).cuda())
+	E = DDP(Extractor().eval().cuda(gpu_idx), device_ids=[gpu_idx])  # vgg19 network
+	G = DDP(Generator(i_channels=3, o_channels=64, num_blocks=16, num_scaling_block=2).cuda(gpu_idx), device_ids=[gpu_idx])
+	D = DDP(Discriminator(i_channels=3, o_channels=64, num_super_blocks=4, num_neurons=1024).cuda(gpu_idx), device_ids=[gpu_idx])
 
-	pixel_loss = nn.L1Loss().cuda()
-	content_loss = nn.L1Loss().cuda()
-	adversarial_loss = nn.BCEWithLogitsLoss().cuda()
+	pixel_loss = nn.L1Loss().cuda(gpu_idx)
+	content_loss = nn.L1Loss().cuda(gpu_idx)
+	adversarial_loss = nn.BCEWithLogitsLoss().cuda(gpu_idx)
 
 	solver_generator = optim.Adam(params=G.parameters(), lr=0.0002, betas=(0.9, 0.999))
 	solver_discriminator = optim.Adam(params=D.parameters(), lr=0.0002, betas=(0.9, 0.999))
@@ -46,8 +49,8 @@ def train(gpu_idx, node_rank, nb_gpus_per_node, world_size, server_config, root_
 	while epoch_counter < nb_epochs:
 		for index, (low_resolution_img, high_resolution_img) in enumerate(loader):
 			# create labels (real and fake)
-			real_labels = th.ones(low_resolution_img.shape[0])[:, None].cuda()
-			fake_labels = th.zeros(low_resolution_img.shape[0])[:, None].cuda()
+			real_labels = th.ones(low_resolution_img.shape[0])[:, None].cuda(gpu_idx)
+			fake_labels = th.zeros(low_resolution_img.shape[0])[:, None].cuda(gpu_idx)
 
 			# train generator
 			solver_generator.zero_grad()
@@ -110,7 +113,7 @@ def main_loop(nb_nodes, nb_gpus_per_node, node_rank, source_path, nb_epochs, bt_
         logger.debug(f'{th.cuda.device_count()} were detected ...!')
         mp.spawn(
             train, 
-            nprocs=nb_gpus,
+            nprocs=nb_gpus_per_node,
             args=(node_rank, nb_gpus_per_node, nb_nodes * nb_gpus_per_node, server_config, source_path, nb_epochs, bt_size)
         )
     else:
