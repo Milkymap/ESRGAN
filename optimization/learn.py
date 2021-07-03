@@ -19,15 +19,6 @@ from modelization.discriminator import Discriminator
 from libraries.strategies import *
 from loguru import logger 
 
-@click.command()
-@click.option('--gpu_idx', help='local index of the gpu', type=int)
-@click.option('--node_rank', help='rank of the current node', type=int)
-@click.option('--nb_gpu_per_node', help='number gpu per nodes', type=int)
-@click.option('--world_size', help='total number of processes : nb_nodes * nb_gpus_per_node', type=int)
-@click.option('--server_config', help='tcp://server_add:server_port', type=str)
-@click.option('--root_path', help='path to source data', type=click.Path(True))
-@click.option('--nb_epochs', help='number of epochs', type=int)
-@click.option('--bt_size', help='batch size', type=int)
 def train(gpu_idx, node_rank, nb_gpus_per_node, world_size, server_config, root_path, nb_epochs, bt_size):
 	worker_rank = node_rank * nb_gpus_per_node + gpu_idx
 	th.init_process_group(backend='nccl', world_size=world_size, rank=worker_rank, init_method=server_config)
@@ -126,4 +117,4 @@ def main_loop(nb_nodes, nb_gpus_per_node, node_rank, source_path, nb_epochs, bt_
         logger.debug('No GPU was detected ...!')
 
 if __name__ == '__main__':
-	train()
+	main_loop()
