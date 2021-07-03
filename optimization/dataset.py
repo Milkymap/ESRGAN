@@ -16,7 +16,7 @@ class Source(Dataset):
 		self.image_paths = sorted(glob(path.join(root_path, '*.jpg')))[:4000]
 		self.augmentation_rate = augmentation_rate
 		self.build_lr = T.Compose([
-			T.Resize((W // upscale_factor, H // upscale_factor), interpolation=T.InterpolationMode.BICUBIC),
+			T.Resize((W // upscale_factor, H // upscale_factor)),
 			T.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]) 
 		])
 		self.build_hr = T.Compose([
