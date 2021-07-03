@@ -33,9 +33,9 @@ def train(gpu_idx, node_rank, nb_gpus_per_node, world_size, server_config, root_
 	picker = DSP(dataset=source, num_replicas=world_size, rank=worker_rank)
 	loader = DTL(dataset=source, shuffle=True, batch_size=bt_size, sampler=picker)
 
-	E = DDP(Extractor().eval().cuda(gpu_idx))  # vgg19 network
-	G = DDP(Generator(i_channels=3, o_channels=64, num_blocks=16, num_scaling_block=2).cuda(gpu_idx))
-	D = DDP(Discriminator(i_channels=3, o_channels=64, num_super_blocks=4, num_neurons=1024).cuda(gpu_idx))
+	E = DDP(Extractor().eval().cuda(gpu_idx), device_ids=[gpu_idx])  # vgg19 network
+	G = DDP(Generator(i_channels=3, o_channels=64, num_blocks=16, num_scaling_block=2).cuda(gpu_idx), device_ids=[gpu_idx])
+	D = DDP(Discriminator(i_channels=3, o_channels=64, num_super_blocks=4, num_neurons=1024).cuda(gpu_idx), device_ids=[gpu_idx])
 
 	pixel_loss = nn.L1Loss().cuda(gpu_idx)
 	content_loss = nn.L1Loss().cuda(gpu_idx)
