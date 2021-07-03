@@ -31,7 +31,7 @@ def train(gpu_idx, node_rank, nb_gpus_per_node, world_size, server_config, root_
 
 	source = Source(root_path=root_path)
 	picker = DSP(dataset=source, num_replicas=world_size, rank=worker_rank)
-	loader = DTL(dataset=source, shuffle=True, batch_size=bt_size, sampler=picker)
+	loader = DTL(dataset=source, shuffle=False, batch_size=bt_size, sampler=picker)
 
 	E = DDP(Extractor().eval().cuda(gpu_idx), device_ids=[gpu_idx])  # vgg19 network
 	G = DDP(Generator(i_channels=3, o_channels=64, num_blocks=16, num_scaling_block=2).cuda(gpu_idx), device_ids=[gpu_idx])
